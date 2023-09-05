@@ -31,6 +31,10 @@ func NewVM(m types.Machine, s string) VM {
 	}
 }
 
+func (vm VM) SshConfig() *types.SSH {
+	return vm.machine.Config().SSH
+}
+
 func (vm VM) HasFile(s string) {
 	machineHasFile(vm.machine, s)
 }
