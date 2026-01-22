@@ -181,6 +181,11 @@ func (q *QEMU) Create(ctx context.Context) (context.Context, error) {
 		)
 	}
 
+	// Use QEMU boot order "dc" (disk, then cdrom). This works in conjunction with
+	// per-drive bootindex values: 1-N for disks, 50 for ISO, and 60 for the
+	// cloud-init/DataSource drive. The boot order ensures disks are considered
+	// first, while bootindex controls the precedence among multiple devices of
+	// the same type.
 	opts = append(opts, "-boot", "order=dc,menu=on")
 
 	log.Infof("Creating QEMU machine with args: %s", strings.Join(append(opts, genDrives(q.machineConfig)...), " "))
