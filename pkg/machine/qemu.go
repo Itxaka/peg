@@ -167,9 +167,7 @@ func (q *QEMU) Create(ctx context.Context) (context.Context, error) {
 
 	if q.machineConfig.CPUType != "" {
 		opts = append(opts, "-cpu", q.machineConfig.CPUType)
-	}
-
-	if q.machineConfig.Arch == "aarch64" && q.machineConfig.CPUType == "" {
+	} else if q.machineConfig.Arch == "aarch64" {
 		// For aarch64, set a default CPU type if not specified
 		opts = append(opts, "-cpu", "max")
 	}
