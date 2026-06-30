@@ -103,3 +103,32 @@ func TestFirstExisting(t *testing.T) {
 		t.Fatal("expected error when no path exists")
 	}
 }
+
+func TestNewSelectsCloudHypervisor(t *testing.T) {
+	m, err := New(types.WithStateDir(t.TempDir()), types.CloudHypervisorEngine,
+		types.WithSSHPort("2222"))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, ok := m.(*CloudHypervisor); !ok {
+		t.Fatalf("expected *CloudHypervisor, got %T", m)
+	}
+}
+
+func TestCloudHypervisorImplementsMachine(t *testing.T) {
+	var _ types.Machine = (*CloudHypervisor)(nil)
+}
+
+func TestScreenshotNotImplemented(t *testing.T) {
+	c := &CloudHypervisor{machineConfig: cfg()}
+	if _, err := c.Screenshot(); err == nil {
+		t.Fatal("expected screenshot error")
+	}
+}
+
+func TestDetachCDNoop(t *testing.T) {
+	c := &CloudHypervisor{machineConfig: cfg()}
+	if err := c.DetachCD(); err != nil {
+		t.Fatalf("DetachCD should be nil, got %v", err)
+	}
+}
