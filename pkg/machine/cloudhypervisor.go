@@ -26,6 +26,12 @@ var commonCHBinaryPaths = []string{
 	"/home/linuxbrew/.linuxbrew/bin/cloud-hypervisor",
 }
 
+// commonPastaPaths are searched (in order) when resolving the pasta binary.
+var commonPastaPaths = []string{
+	"/usr/bin/pasta",
+	"/usr/local/bin/pasta",
+}
+
 // commonFirmwarePaths are searched (in order) when no Firmware is configured.
 var commonFirmwarePaths = []string{
 	"/usr/share/cloud-hypervisor/hypervisor-fw",
@@ -78,7 +84,9 @@ func buildCloudHypervisorArgs(mc types.MachineConfig, firmware string, drives []
 // buildLaunchCommand wraps the cloud-hypervisor invocation with pasta when
 // default networking is enabled. Pasta builds a rootless netns + tap and
 // forwards host <SSH.Port> -> guest 22, preserving 127.0.0.1:<port> SSH.
-func buildLaunchCommand(mc types.MachineConfig, chBinary string, chArgs []string) (string, []string) {
+// pastaBinary must be an absolute path (resolved by resolvePasta before calling).
+// When DisableDefaultNetworking is true, pastaBinary is ignored.
+func buildLaunchCommand(mc types.MachineConfig, pastaBinary string, chBinary string, chArgs []string) (string, []string) {
 	if mc.DisableDefaultNetworking {
 		return chBinary, chArgs
 	}
@@ -87,7 +95,7 @@ func buildLaunchCommand(mc types.MachineConfig, chBinary string, chArgs []string
 		port = mc.SSH.Port
 	}
 	pastaArgs := []string{"--config-net", "-t", fmt.Sprintf("%s:22", port), "--", chBinary}
-	return "pasta", append(pastaArgs, chArgs...)
+	return pastaBinary, append(pastaArgs, chArgs...)
 }
 
 func (q *CloudHypervisor) resolveBinary() (string, error) {
@@ -113,6 +121,17 @@ func (q *CloudHypervisor) resolveFirmware() (string, error) {
 		return "", fmt.Errorf("no firmware configured and none found in common paths: %w", err)
 	}
 	return fw, nil
+}
+
+func resolvePasta() (string, error) {
+	if p, err := firstExisting(commonPastaPaths); err == nil {
+		return p, nil
+	}
+	p, err := exec.LookPath("pasta")
+	if err != nil {
+		return "", fmt.Errorf("pasta not found in common paths or PATH: %w", err)
+	}
+	return p, nil
 }
 
 func (q *CloudHypervisor) driveSizes() []string {
@@ -166,7 +185,15 @@ func (q *CloudHypervisor) Create(ctx context.Context) (context.Context, error) {
 	}
 
 	chArgs := buildCloudHypervisorArgs(q.machineConfig, firmware, userDrives)
-	name, args := buildLaunchCommand(q.machineConfig, binary, chArgs)
+
+	pastaBinary := ""
+	if !q.machineConfig.DisableDefaultNetworking {
+		pastaBinary, err = resolvePasta()
+		if err != nil {
+			return ctx, fmt.Errorf("failed to find pasta: %w", err)
+		}
+	}
+	name, args := buildLaunchCommand(q.machineConfig, pastaBinary, binary, chArgs)
 
 	log.Infof("Starting VM with %s [ Memory: %s, CPU: %s ]", binary, q.machineConfig.Memory, q.machineConfig.CPU)
 

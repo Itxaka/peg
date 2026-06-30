@@ -65,9 +65,9 @@ func TestBuildArgsAppendsUserArgs(t *testing.T) {
 }
 
 func TestBuildLaunchCommandPasta(t *testing.T) {
-	name, args := buildLaunchCommand(cfg(), "/bin/cloud-hypervisor", []string{"--cpus", "boot=2"})
-	if name != "pasta" {
-		t.Fatalf("expected pasta, got %s", name)
+	name, args := buildLaunchCommand(cfg(), "/usr/bin/pasta", "/bin/cloud-hypervisor", []string{"--cpus", "boot=2"})
+	if name != "/usr/bin/pasta" {
+		t.Fatalf("expected /usr/bin/pasta, got %s", name)
 	}
 	got := joined(args)
 	for _, want := range []string{"--config-net", "-t 2222:22", "-- /bin/cloud-hypervisor", "--cpus boot=2"} {
@@ -80,12 +80,23 @@ func TestBuildLaunchCommandPasta(t *testing.T) {
 func TestBuildLaunchCommandNoNet(t *testing.T) {
 	c := cfg()
 	c.DisableDefaultNetworking = true
-	name, args := buildLaunchCommand(c, "/bin/cloud-hypervisor", []string{"--cpus", "boot=2"})
+	name, args := buildLaunchCommand(c, "", "/bin/cloud-hypervisor", []string{"--cpus", "boot=2"})
 	if name != "/bin/cloud-hypervisor" {
 		t.Fatalf("expected direct binary, got %s", name)
 	}
 	if joined(args) != "--cpus boot=2" {
 		t.Fatalf("args altered: %s", joined(args))
+	}
+}
+
+func TestBuildLaunchCommandPastaUsesResolvedPath(t *testing.T) {
+	resolvedPasta := "/usr/local/bin/pasta"
+	name, _ := buildLaunchCommand(cfg(), resolvedPasta, "/bin/cloud-hypervisor", []string{"--cpus", "boot=2"})
+	if name != resolvedPasta {
+		t.Fatalf("expected process name to be resolved absolute path %q, got %q", resolvedPasta, name)
+	}
+	if name == "pasta" {
+		t.Fatal("process name must not be bare 'pasta': os.StartProcess does no PATH lookup")
 	}
 }
 
